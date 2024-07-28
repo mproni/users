@@ -8,11 +8,12 @@ import (
 )
 
 func Start() {
-	db := database.InitDB()
-	defer db.Close()
+	database.InitDB()
+	defer database.DB.Close()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/users", handlers.Users)
 	mux.HandleFunc("/users/", handlers.User)
 
+	http.ListenAndServe(":8090", mux)
 }
