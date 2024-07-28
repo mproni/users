@@ -38,16 +38,18 @@ func getUserByID(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) != 3 {
 		http.Error(w, "Invalid URL", http.StatusBadRequest)
+		return
 	}
 
 	id, err := strconv.Atoi(parts[2])
 	if err != nil {
 		http.Error(w, "Invalid User ID", http.StatusBadRequest)
+		return
 	}
 
 	var user models.User
-	stmt := "SELECT id, name, age, description FROM users WHERE ID = ?"
-	row := database.DB.QueryRow(stmt, id)
+	query := "SELECT id, name, age, description FROM users WHERE ID = ?"
+	row := database.DB.QueryRow(query, id)
 	err = row.Scan(&user.ID, &user.Name, &user.Age, &user.Description)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
@@ -67,18 +69,21 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&newUser)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	stmt := "INSERT INTO users (name, age, description) VALUES (?, ?, ?)"
-	res, err := database.DB.Exec(stmt, newUser.Name,
+	query := "INSERT INTO users (name, age, description) VALUES (?, ?, ?)"
+	res, err := database.DB.Exec(query, newUser.Name,
 		newUser.Age, newUser.Description)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	id, err := res.LastInsertId()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	newUser.ID = int(id)
 
@@ -88,7 +93,33 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateUser(w http.ResponseWriter, r *http.Request) {
-	//TODO
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) != 3 {
+		http.Error(w, "Invalid URL", http.StatusBadRequest)
+		return
+	}
+
+	id, err := strconv.Atoi(parts[2])
+	if err != nil {
+		http.Error(w, "Invalid User ID", http.StatusBadRequest)
+		return
+	}
+
+	var updatedUser models.User
+	err = json.NewDecoder(r.Body).Decode(&updatedUser)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+
+	query := `UPDATE users SET name = ?, age = ?, description = ? WHERE id = ?`
+	_, err = database.DB.Exec(query, updatedUser.Name, updatedUser.Age,
+		updatedUser.Description, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	w.Header().Set("Content-type", "application/json")
+	json.NewEncoder(w).Encode(updatedUser)
 }
 
 func deleteUser(w http.ResponseWriter, r *http.Request) {
