@@ -14,6 +14,8 @@ func Users(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		getAllUsers(w, r)
+	case "POST":
+		createUser(w, r)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -23,8 +25,6 @@ func User(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		getUserByID(w, r)
-	case "POST":
-		createUser(w, r)
 	case "PUT":
 		updateUser(w, r)
 	case "DELETE":
@@ -61,7 +61,28 @@ func getUserByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func getAllUsers(w http.ResponseWriter, r *http.Request) {
-	//TODO
+	query := "SELECT id, name, age, description FROM users"
+	row, err := database.DB.Query(query)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer row.Close()
+
+	var users []models.User
+	for row.Next() {
+		var user models.User
+		err := row.Scan(&user.ID, &user.Name, &user.Age, &user.Description)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		users = append(users, user)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(users)
 }
 
 func createUser(w http.ResponseWriter, r *http.Request) {
@@ -109,6 +130,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	err = json.NewDecoder(r.Body).Decode(&updatedUser)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	query := `UPDATE users SET name = ?, age = ?, description = ? WHERE id = ?`
@@ -116,8 +138,10 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		updatedUser.Description, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
+	updatedUser.ID = id
 	w.Header().Set("Content-type", "application/json")
 	json.NewEncoder(w).Encode(updatedUser)
 }
@@ -139,6 +163,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	_, err = database.DB.Exec(query, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
